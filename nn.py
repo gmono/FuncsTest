@@ -81,6 +81,7 @@ class ZHReg(FunReg):
         self.nn2=NNReg()
         self.register_child(self.fl)
         self.register_child(self.nn)
+        self.register_child(self.nn2)
     def forward(self, x,*args):
         flret=self.fl(x)
         nnret=self.nn(x)
