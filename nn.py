@@ -7,18 +7,22 @@ from mxnet import autograd as ag
 from mxnet.gluon import loss
 from mxnet import nd
 from mxnet import initializer
-def fit(nn:nn.Block,xs,ys,batchsize=10):
+def fit(nn:nn.Block,xs,ys,batchsize=20):
     ds=mxdata.ArrayDataset(xs,ys)
     dl=mxdata.DataLoader(ds,batch_size=batchsize,shuffle=True)
-    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.1})
-    lfunc=loss.L1Loss()
+    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.01})
+    lfunc=loss.L2Loss()
     for i in range(200):
         for data,label in dl:
             with ag.record():
                 y=nn(data)
-                ls=lfunc(y,label) #type:nd.NDArray
+                ls=lfunc(y,label).mean() #type:nd.NDArray
             ls.backward()
             tr.step(batch_size=batchsize,ignore_stale_grad=True)
+        print(f"Loss值:{ls.asscalar()}")
+        if ls.asscalar()<0.1:
+            break
+
 
 class FunReg(nn.Block):
 
@@ -40,6 +44,7 @@ class FLReg(FunReg):
         super(FLReg, self).__init__()
         #自有参数
         self.n=n
+        #L只能是正数
         self.l=self.params.get("l",shape=(1,))
         self.an=self.params.get("an",shape=(n,))
         self.bn = self.params.get("bn", shape=(n,))
@@ -52,8 +57,8 @@ class FLReg(FunReg):
         for i in range(1,self.n):
             adata=self.an.data()
             bdata=self.bn.data()
-            ret=adata[i]*nd.cos((i*pi*x)/self.l.data())+ret
-            ret=bdata[i]*nd.sin((i*pi*x)/self.l.data())+ret
+            ret=adata[i]*nd.cos((i*pi*x)/self.l.data().abs())+ret
+            ret=bdata[i]*nd.sin((i*pi*x)/self.l.data().abs())+ret
         return ret
 
 
@@ -64,10 +69,10 @@ class NNReg(FunReg):
         self.nn=nn.Sequential()
         with self.nn.name_scope():
             self.nn.add(nn.Dense(100,activation="relu"))
-            self.nn.add(nn.Dense(100,activation="relu"))
+            self.nn.add(nn.Dense(100,activation="tanh"))
             self.nn.add(nn.Dense(1))
         self.register_child(self.nn)
-        self.initialize(init=initializer.Zero())
+        self.initialize(init="ones")
 
     def forward(self, x,*args):
         return self.nn(x)
@@ -87,3 +92,25 @@ class ZHReg(FunReg):
         nnret=self.nn(x)
         nn2ret=self.nn2(x)
         return flret*nnret+nn2ret
+
+
+class AdditionNNReg(FunReg):
+    def __init__(self,n=3):
+        super().__init__()
+        self.nns=[]
+        #添加一个
+        for i in range(n):
+            with self.name_scope():
+                tnn = NNReg()
+                self.nns.append(tnn)
+                self.register_child(tnn)
+
+    def forward(self, x,*args):
+        ret=None
+        for nn in self.nns:
+            if ret is None:
+                ret=nn(x)
+            else:
+                ret=ret+nn(x)
+        return ret
+
