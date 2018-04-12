@@ -10,7 +10,7 @@ from mxnet import initializer
 def fit(nn:nn.Block,xs,ys,batchsize=20):
     ds=mxdata.ArrayDataset(xs,ys)
     dl=mxdata.DataLoader(ds,batch_size=batchsize,shuffle=True)
-    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.01})
+    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.1})
     lfunc=loss.L2Loss()
     for i in range(200):
         for data,label in dl:
@@ -61,6 +61,40 @@ class FLReg(FunReg):
             ret=bdata[i]*nd.sin((i*pi*x)/self.l.data().abs())+ret
         return ret
 
+class FastFLReg(FunReg):
+    """
+    快速傅里叶级数拟合器
+    使用向量化技术
+    """
+    def __init__(self,n=10):
+        super(FastFLReg, self).__init__()
+        #自有参数
+        self.n=n
+        #L只能是正数
+        self.l=self.params.get("l",shape=(1,))
+        self.an=self.params.get("an",shape=(n,))
+        self.bn = self.params.get("bn", shape=(n,))
+        self.initialize(init="ones")
+    def forward(self, x,*args):
+        #傅里叶级数
+        x=nd.array(x)
+        n=self.n
+        ns=nd.array(range(1,n))
+        ns=ns.reshape((-1,1))
+        T=nd.dot(ns,x.reshape((1,-1)))
+        pl=2*pi/self.l.data().abs()
+        #
+        an=self.an.data()
+        bn=self.bn.data()
+        san=an[1:].reshape((-1,1))
+        sbn=bn[1:].reshape((-1,1))
+        f=san*nd.cos(T*pl)+sbn*nd.sin(T*pl)
+        f=nd.sum(f,axis=0,keepdims=False)
+        f=f+an[0]
+        return f.reshape((-1,1))
+
+
+
 
 class NNReg(FunReg):
     """神经网络拟合器"""
@@ -69,10 +103,10 @@ class NNReg(FunReg):
         self.nn=nn.Sequential()
         with self.nn.name_scope():
             self.nn.add(nn.Dense(100,activation="relu"))
-            self.nn.add(nn.Dense(100,activation="tanh"))
+            self.nn.add(nn.Dense(100,activation="relu"))
             self.nn.add(nn.Dense(1))
         self.register_child(self.nn)
-        self.initialize(init="ones")
+        self.initialize()
 
     def forward(self, x,*args):
         return self.nn(x)
@@ -114,3 +148,22 @@ class AdditionNNReg(FunReg):
                 ret=ret+nn(x)
         return ret
 
+class MultiplyNNReg(FunReg):
+    def __init__(self,n=3):
+        super().__init__()
+        self.nns=[]
+        #添加一个
+        for i in range(n):
+            with self.name_scope():
+                tnn = NNReg()
+                self.nns.append(tnn)
+                self.register_child(tnn)
+
+    def forward(self, x,*args):
+        ret=None
+        for nn in self.nns:
+            if ret is None:
+                ret=nn(x)
+            else:
+                ret=ret*nn(x)
+        return ret
