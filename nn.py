@@ -7,12 +7,21 @@ from mxnet import autograd as ag
 from mxnet.gluon import loss
 from mxnet import nd
 from mxnet import initializer
-def fit(nn:nn.Block,xs,ys,batchsize=20):
+from matplotlib import pyplot as plt
+from tools import *
+from funcs import *
+plt.ion()
+
+def fit(nn:nn.Block,xs,ys,batchsize=20,draw=True):
+    """训练函数"""
     ds=mxdata.ArrayDataset(xs,ys)
     dl=mxdata.DataLoader(ds,batch_size=batchsize,shuffle=True)
-    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.1})
+
+    ###
+    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.01})
+    ###
     lfunc=loss.L2Loss()
-    for i in range(200):
+    for i in range(2000):
         for data,label in dl:
             with ag.record():
                 y=nn(data)
@@ -22,6 +31,11 @@ def fit(nn:nn.Block,xs,ys,batchsize=20):
         print(f"Loss值:{ls.asscalar()}")
         if ls.asscalar()<0.1:
             break
+        # 绘图
+        plt.gcf().clear()
+        plot_2d(sanjiao, nn, start=-10, end=10, rstart=-20, rend=20)
+        plt.pause(0.0001)
+
 
 
 class FunReg(nn.Block):
@@ -63,7 +77,7 @@ class FLReg(FunReg):
 
 class FastFLReg(FunReg):
     """
-    快速傅里叶级数拟合器
+    快速版傅里叶级数拟合器
     使用向量化技术
     """
     def __init__(self,n=10):
@@ -93,6 +107,61 @@ class FastFLReg(FunReg):
         f=f+an[0]
         return f.reshape((-1,1))
 
+
+class CasCadeFastFLReg(FunReg):
+    """
+    级联增长 先训练前面的
+    快速傅里叶级数拟合器
+    使用向量化技术
+    """
+    def __init__(self,n=10,add_count=100):
+        """
+        :param n: 层数
+        :param add_count: 训练多少个batch 后增加一层 一直到10层
+        """
+        super(CasCadeFastFLReg, self).__init__()
+        #cas
+        self.add_count=add_count
+        self.now_count=0
+        self.now_n=1 #1->n之间 则计算时使用0到n-1的元素
+        #自有参数
+        self.n=n
+        #L只能是正数
+        self.l=self.params.get("l",shape=(1,))
+        self.an=self.params.get("an",shape=(n,))
+        self.bn = self.params.get("bn", shape=(n,))
+        self.initialize(init="ones")
+    def log(self):
+        if self.now_n==self.n-1:
+            return
+        self.now_count+=1
+        if self.now_count==self.add_count:
+            self.now_count=0
+            self.now_n+=1
+
+
+    def forward(self, x,*args):
+        #傅里叶级数
+        x=nd.array(x)
+        n=self.n
+        ns=nd.array(range(1,n))
+        ns=ns.reshape((-1,1))
+        T=nd.dot(ns,x.reshape((1,-1)))
+        pl=2*pi/self.l.data().abs()
+        #
+        an=self.an.data()
+        bn=self.bn.data()
+        san=an[1:].reshape((-1,1))
+        sbn=bn[1:].reshape((-1,1))
+        f=san*nd.cos(T*pl)+sbn*nd.sin(T*pl)
+        #进行Dropout操作 实现Cascade
+        f=f[:self.now_n,:]
+        ####
+        f=nd.sum(f,axis=0,keepdims=False)
+        f=f+an[0]
+        ###记录
+        self.log()
+        return f.reshape((-1,1))
 
 
 
@@ -167,3 +236,4 @@ class MultiplyNNReg(FunReg):
             else:
                 ret=ret*nn(x)
         return ret
+

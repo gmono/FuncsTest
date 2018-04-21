@@ -21,6 +21,27 @@ def getRegData(reg,start=-100,end=100):
     ys = reg.predict(xs.reshape(-1,1))
     return xs.reshape((-1, 1)), ys, xs
 
+
+#统一绘图函数
+def plot_2d(func,reg,start=-100,end=100,rstart=-100,rend=100):
+    #训练数据和训练
+    xs,ys,xsf=getdata(func,start,end)
+    #同等比例比较
+    rxs,rys,rxsf=getRegData(reg,start,end)
+    p1=plt.subplot(121)
+    p1.plot(xsf,ys)
+    p1.plot(rxsf,rys)
+    #延伸比较
+    xs,ys,xsf=getdata(func,rstart,rend)
+    rxs,rys,rxsf=getRegData(reg,rstart,rend)
+    p2=plt.subplot(122)
+    p2.plot(xsf,ys)
+    p2.plot(rxsf,rys)
+    plt.show()
+
+
+#统一比较函数
+
 def contrast_reg(func,reg,start=-100,end=100,rstart=-100,rend=100):
     #训练数据和训练
     xs,ys,xsf=getdata(func,start,end)
