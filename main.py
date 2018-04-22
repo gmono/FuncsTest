@@ -12,9 +12,9 @@ from funcs import *
 #     print(reg.collect_params()[i].data())
 
 #神经网络测试函数
-xs,ys,_=getdata(fang,-10,10)
+xs,ys,_=getdata(fang,0,10)
 xs=xs.astype("float32")
 ys=ys.astype("float32")
-fit(reg,xs,ys,draw_pars=[-10,10,-20,20,fang])
+fit(reg,xs,ys,draw_pars=[0,10,-20,20,fang])
 import  os
 os.system("pause")
