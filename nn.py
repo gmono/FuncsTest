@@ -10,8 +10,10 @@ from mxnet import initializer
 from matplotlib import pyplot as plt
 from tools import *
 from funcs import *
+#如果使用通用方法测试则删掉这行
 plt.ion()
-
+#设定学习的函数
+func=fang
 def fit(nn:nn.Block,xs,ys,batchsize=20,draw=True):
     """训练函数"""
     ds=mxdata.ArrayDataset(xs,ys)
@@ -29,11 +31,11 @@ def fit(nn:nn.Block,xs,ys,batchsize=20,draw=True):
             ls.backward()
             tr.step(batch_size=batchsize,ignore_stale_grad=True)
         print(f"Loss值:{ls.asscalar()}")
-        if ls.asscalar()<0.1:
-            break
+        # if ls.asscalar()<0.1:
+        #     break
         # 绘图
         plt.gcf().clear()
-        plot_2d(sanjiao, nn, start=-10, end=10, rstart=-20, rend=20)
+        plot_2d(func, nn, start=-10, end=10, rstart=-20, rend=20)
         plt.pause(0.0001)
 
 

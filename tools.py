@@ -37,7 +37,6 @@ def plot_2d(func,reg,start=-100,end=100,rstart=-100,rend=100):
     p2=plt.subplot(122)
     p2.plot(xsf,ys)
     p2.plot(rxsf,rys)
-    plt.show()
 
 
 #统一比较函数
