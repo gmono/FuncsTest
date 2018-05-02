@@ -19,7 +19,7 @@ def fit(nn:nn.Block,xs,ys,batchsize=20,draw_pars=None):
     ###
     tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.01})
     ###
-    lfunc=loss.L2Loss()
+    lfunc=loss.SigmoidBCELoss()
     for i in range(2000):
         for data,label in dl:
             with ag.record():
@@ -172,8 +172,12 @@ class NNReg(FunReg):
         super(NNReg,self).__init__()
         self.nn=nn.Sequential()
         with self.nn.name_scope():
-            self.nn.add(nn.Dense(100,activation="relu"))
-            self.nn.add(nn.Dense(100,activation="relu"))
+            self.nn.add(nn.Dense(100))
+            self.nn.add(nn.LeakyReLU(0.1))
+            self.nn.add(nn.Dropout(0.1))
+            self.nn.add(nn.Dense(100))
+            self.nn.add(nn.LeakyReLU(0.1))
+            self.nn.add(nn.Dropout(0.1))
             self.nn.add(nn.Dense(1))
         self.register_child(self.nn)
         self.initialize()

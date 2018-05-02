@@ -1,7 +1,7 @@
 from tools import *
 from sklearn import svm,tree
 from nn import *
-reg=FLReg(5)
+reg=NNReg()
 from funcs import *
 #通用测试
 # reg=svm.SVR(gamma=0.00011,C=10)
