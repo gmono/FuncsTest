@@ -11,15 +11,15 @@ from matplotlib import pyplot as plt
 from tools import *
 from funcs import *
 
-def fit(nn:nn.Block,xs,ys,batchsize=20,draw_pars=None):
+def fit(nn:nn.Block,xs,ys,batchsize=20,draw_pars=None,drfunc=None):
     """训练函数"""
     ds=mxdata.ArrayDataset(xs,ys)
     dl=mxdata.DataLoader(ds,batch_size=batchsize,shuffle=True)
 
     ###
-    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.01})
+    tr=Trainer(nn.collect_params(),optimizer="rmsprop",optimizer_params={"learning_rate":0.001})
     ###
-    lfunc=loss.SigmoidBCELoss()
+    lfunc=loss.L2Loss()
     for i in range(2000):
         for data,label in dl:
             with ag.record():
@@ -31,11 +31,12 @@ def fit(nn:nn.Block,xs,ys,batchsize=20,draw_pars=None):
         # if ls.asscalar()<0.1:
         #     break
         # 绘图
-        if draw_pars is not None:
+
+        if draw_pars is not None and drfunc is not None and ls.asscalar()<10:
             plt.ion()
             plt.gcf().clear()
-            plot_2d(draw_pars[4], nn, draw_pars[0], draw_pars[1], draw_pars[2], draw_pars[3])
-            plt.pause(0.0001)
+            drfunc(draw_pars[4], nn, draw_pars[0], draw_pars[1], draw_pars[2], draw_pars[3])
+            plt.pause(0.5)
 
 
 
